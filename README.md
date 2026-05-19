@@ -10,7 +10,7 @@ após a instalação dos pacotes necessarios, digite "npm run dev";
 
 o projeto será compilado e inciado, no terminal aparecerá um codigo QR, escaneie-o usando a função de "conectar dispositivos" do whatsapp, como se fosse conectar ao whatsapp web;
 
-pós escaneado, bot conectado a sua conta. finalize o processo do terminal para o desligar.
+pós escaneado, bot conectado a sua conta. finalize o processo do terminal caso deseje o desligar.
 
 assim que conectado, usando outra conta/contato para lhe enviar mensagens, envie "!ajuda" para a conta conectada ao bot para iniciar o menu de opções(prefixo de desenvolvimento para evitar spam em contatos alheios)
 
