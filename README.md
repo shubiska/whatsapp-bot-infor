@@ -2,6 +2,8 @@ setup:
 
 baixe e extraia o projeto;
 
+instale chrome se não existir na maquina(é uma dependencia do bot)
+
 abra o diretorio no vscode;
 
 no terminal do vscode, digite "npm install";
