@@ -17,5 +17,3 @@ pós escaneado, bot conectado a sua conta. finalize o processo do terminal caso 
 assim que conectado, usando outra conta/contato para lhe enviar mensagens, envie "!ajuda" para a conta conectada ao bot para iniciar o menu de opções(prefixo de desenvolvimento para evitar spam em contatos alheios)
 
 até então, o bot só responde mensagens, sem salvar informações nem abrir chamados, apenas um teste e prova de conceito.
-
-infelizmente sem tempo para implementar o resto essa noite.
