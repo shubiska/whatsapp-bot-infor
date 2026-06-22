@@ -6,7 +6,7 @@ import qrcode from "qrcode-terminal";
 // #endregion
 
 
-// #region Logging
+// #region Startup Messages
 
 enum Messages {
     BotSetup = "Iniciando Bot...",
@@ -24,7 +24,12 @@ function LogMessage(message: Messages) {
 // #region Client Setup & Events 
 
 const client: Client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+    executablePath:
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        headless: true
+    }
 });
 
 client.on("qr", (qr) => {
@@ -38,62 +43,63 @@ client.on("ready", () => {
 
 type MenuOption = {
     label: string;
-    reply: string;
-    finished: string;
+    replies: string[];
+    finisher: string;
 };
 
+const MenuStarter: string = "Olá, seção de informática 9º BIMTZ. \nCom o que precisa de ajuda?\n";
+const MenuFinisher: string = "\n(Mensagens subsequentes dentro de 5 minutos serão adicionadas ao chamado)";
 const Menu: MenuOption[] = [
     {
         label: "Falta de internet",
-        reply: "Que militar/seção está enfrentando a falta de internet?",
-        finished: "Um militar ja irá lhe atender."
+        replies: ["Que militar/seção está enfrentando a falta de internet?"],
+        finisher: "Um militar ja irá lhe atender."
     },
     {
         label: "Instalação de impressora",
-        reply: "Qual seção precisa deste serviço?",
-        finished: "Um militar ja irá lhe atender."
+        replies: ["Qual seção precisa deste serviço?"],
+        finisher: "Um militar ja irá lhe atender."
     },
     {
         label: "Manutenção de computador/rede",
-        reply: "Descreva o problema com o computador/rede?",
-        finished: "Um militar ja irá lhe atender."
+        replies: ["Descreva o problema com o computador/rede?"],
+        finisher: "Um militar ja irá lhe atender."
     },
     {
         label: "SPED",
-        reply: "Menu em desenvolvimento...",
-        finished: "Dados recebidos, solicitação encaminhada."
+        replies: ["Menu em desenvolvimento..."],
+        finisher: "Dados recebidos, solicitação encaminhada."
     },
     {
         label: "Instalação de Aplicativo",
-        reply: "Menu em desenvolvimento...",
-        finished: "Solicitação recebida. Um militar auxiliará na instalação."
+        replies: ["Qual seção precisa deste serviço?", "Que aplicativo precisa ser instalado?"],
+        finisher: "Solicitação recebida. Um militar auxiliará na instalação."
     },
     {
         label: "Apoio videoconferência",
-        reply: "Qual o local(plataforma), data e horário da videoconferência?",
-        finished: "Apoio confirmado. Um militar será escalado para o evento."
+        replies: ["Qual a data da videoconferência?", "Qual o horario da videoconferência?", "Qual a plataforma da videoconferência?"],
+        finisher: "Apoio confirmado. Um militar será escalado para o evento."
     },
     {
         label: "Falar com militar",
-        reply: "Você deseja falar com um militar?",
-        finished: "Um militar ja irá lhe atender."
+        replies: ["Você deseja falar com um militar?"],
+        finisher: "Um militar ja irá lhe atender."
     }
 ];
 
 const UserStates = new Map();
+const UserStateDefault: UserState = { subMenu: 0, subReply: 0};
+type UserState = {
+    subMenu: number;
+    subReply: number;
+    endTime?: number;
+};
 
-enum STATES {
-    NEW,
-    MENU0,
-    MENU1,
-    DONE,
+function GetState(user: string): UserState {
+    return UserStates.get(user) ?? UserStateDefault;
 }
 
-function GetState(user: string) {
-    return UserStates.get(user) || STATES.NEW;
-}
-
-function SetState(user: string, state: STATES) {
+function SetState(user: string, state: UserState) {
     UserStates.set(user, state);
 }
 
@@ -105,52 +111,87 @@ function ToDigit(str: string) {
 }
 
 function MessageReply(msg: Message) {
-    const state = GetState(msg.from);
+    var state = GetState(msg.from);
 
     // Menu Inicial
-    if (state == STATES.NEW) {
-        var reply: string = "Olá, seção de informática EB. Com o que precisa de ajuda?";
+    if (state.subMenu == -1 || msg.body == "!ajuda") {
+        var reply: string = MenuStarter;
         for (let i = 0; i < Menu.length; i++) {
             reply += `\n${i + 1}. ${Menu[i].label}`;
         }
 
+        state.subMenu = 0;
+        state.subReply = 0;
+
+        SetState(msg.from, state);
         msg.reply(reply);
-        SetState(msg.from, STATES.MENU0);
-    }
-}
-
-var ChosenMenu: number = 0;
-
-client.on("message", (msg) => {
-    //Ignorar mensagens de si mesmo e de grupos
-    if (msg.fromMe || msg.from.includes("@g.us")) return;
-
-    const state = GetState(msg.from);
-
-    if ((state == STATES.NEW || state == STATES.DONE) && msg.body == "!ajuda") {
-        MessageReply(msg);
 
         return;
     }
 
-    if (state == STATES.MENU0) {
+    // Primeiro Submenu
+    if (state.subMenu == 0) {
         const digit: number = ToDigit(msg.body);
-        if (digit > 0 && digit <= Menu.length) {
-            msg.reply(`${Menu[digit - 1].reply}`);
-            ChosenMenu = digit - 1;
-            SetState(msg.from, STATES.MENU1);
-        } else {
-            msg.reply("Opção inválida. Por favor, escolha uma opção com um digito entre 1 e ${Menu.length}.");
+
+        if (digit <= 0 || digit > Menu.length) {
+            msg.reply(`Opção inválida. Por favor, escolha uma opção com um digito entre 1 e ${Menu.length}.`);
+
+            return;
         }
+
+        state.subMenu = digit - 1;
+
+        SetState(msg.from, state);
+        msg.reply(`${Menu[state.subMenu].replies[0]}`);
 
         return
     }
 
-    if (state == STATES.MENU1) {
-        msg.reply(Menu[ChosenMenu].finished);
-        SetState(msg.from, STATES.NEW);
-        return;
+    // Subsequentes perguntas
+    if (state.subMenu > 1) {
+        state.subReply ++;
+
+        if (state.subReply > Menu[state.subMenu].replies.length - 1) {
+            msg.reply(`${Menu[state.subMenu].finisher} ${MenuFinisher}`);
+
+            state.subMenu = -2;
+            state.subReply = 0;
+            state.endTime = msg.timestamp;
+
+            return;
+        }
+
+        SetState(msg.from, state);
+        msg.reply(`${Menu[state.subMenu].replies[state.subReply]}`);
+
+        return
     }
+
+    // Conversa Finalizada
+    if (state.subMenu == -2) {
+        if (msg.timestamp > state.endTime! + 300) {
+
+            state = UserStateDefault;
+            state.subMenu = -1;
+
+            SetState(msg.from, UserStateDefault);
+            MessageReply(msg);
+
+            return;
+        }
+
+        msg.reply("adicionado ao chamado.");
+
+        return
+    }
+}
+
+client.on("message", (msg) => {
+
+    console.log(msg.body)
+    //Ignorar mensagens de si mesmo e de grupos
+    if (msg.from.includes("@g.us")) return;
+        MessageReply(msg);
 });
 
 // #endregion
